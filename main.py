@@ -116,12 +116,11 @@ class AmpereProxyHandler(http.server.BaseHTTPRequestHandler):
     def do_POST(self):
         self.handle_proxy()
 
-    def do_GET(self):
-        if self.path == '/' or self.path == '/index.html':
+    def do_GET(self):        if self.path == '/' or self.path == '/index.html':
             self.send_response(200)
-            self.send_header("Content-Type", "application/json")
+    self.send_header("Content-Type", "application/json")
             self.end_headers()
-active = sum(1 for s in getattr(self.server, 'stats', []) if s['failed'] <= 10)
+            active = sum(1 for s in getattr(self.server, 'stats', []) if s['failed'] <= 10)
             total = len(getattr(self.server, 'tokens', []))
             total_used = sum(s['used'] for s in getattr(self.server, 'stats', []))
             total_failed = sum(s['failed'] for s in getattr(self.server, 'stats', []))
@@ -210,9 +209,10 @@ def serve_proxy(port, base_url, tokens, rr_state_file):
             idx = (idx + 1) % len(tokens)
             if idx == start_idx:
                 stat = stats[idx]
-                idx = (idx + 1) % len(tokens)
+    idx = (idx + 1) % len(tokens)
                 return stat['token']
-server = ThreadingHTTPServer(('0.0.0.0', port), AmpereProxyHandler)
+
+    server = ThreadingHTTPServer(('0.0.0.0', port), AmpereProxyHandler)
     server.base_url = base_url
     server.tokens = tokens
     server.rr_state_file = rr_state_file
@@ -266,7 +266,7 @@ def main():
         try:
             tokens = load_tokens(args.tokens_file)
         except Exception as e:
-            print(f"❌ Cannot read tokens file {args.tokens_path}: {e}")
+            print(f"❌ Cannot read tokens file: {e}")
             sys.exit(2)
 
     if not tokens:
@@ -316,4 +316,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+
+           
