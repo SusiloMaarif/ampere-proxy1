@@ -35,11 +35,11 @@ function getNextToken() {
 
 app.use(express.json());
 
-// Dashboard.html
+// Dashboard
 app.get('/', (req, res) => {
   const totalUsed = stats.reduce((a, b) => a + b.used, 0);
   const totalFailed = stats.reduce((a, b) => a + b.failed, 0);
-  const activeTokens = stats.filter(s => s.failed <= 10).length; // heuristic
+  const activeTokens = stats.filter(s => s.failed <= 10).length;
 
   const rows = stats.map((s, i) => `
     <tr>
@@ -84,4 +84,21 @@ app.post('/v1/chat/completions', async (req, res) => {
     // Retry once with next token
     try {
       const stat2 = getNextToken();
-      const r2 = await axios.post('https://api.ampere.sh/v1/chat/complet
+      const r2 = await axios.post('https://api.ampere.sh/v1/chat/completions', req.body, {
+        headers: { Authorization: `Bearer ${stat2.token}` },
+        timeout: 60000
+      });
+      stat2.used++;
+      res.json(r2.data);
+    } catch (e2) {
+      res.status(500).json({ error: 'All tokens failed', details: e2.message });
+    }
+  }
+});
+
+// Health check
+app.get('/health', (req, res) => res.json({ status: 'ok', tokens: tokens.length }));
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`⚡️ Proxy running on port ${PORT}`);
+});
