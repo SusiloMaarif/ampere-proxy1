@@ -116,9 +116,10 @@ class AmpereProxyHandler(http.server.BaseHTTPRequestHandler):
     def do_POST(self):
         self.handle_proxy()
 
-    def do_GET(self):        if self.path == '/' or self.path == '/index.html':
+    def do_GET(self):
+        if self.path == '/' or self.path == '/index.html':
             self.send_response(200)
-    self.send_header("Content-Type", "application/json")
+self.send_header("Content-Type", "application/json")
             self.end_headers()
             active = sum(1 for s in getattr(self.server, 'stats', []) if s['failed'] <= 10)
             total = len(getattr(self.server, 'tokens', []))
@@ -204,117 +205,4 @@ def serve_proxy(port, base_url, tokens, rr_state_file):
         while True:
             stat = stats[idx]
             if stat['failed'] <= 10:
-                idx = (idx + 1) % len(tokens)
-                return stat['token']
-            idx = (idx + 1) % len(tokens)
-            if idx == start_idx:
-                stat = stats[idx]
-    idx = (idx + 1) % len(tokens)
-                return stat['token']
-
-    server = ThreadingHTTPServer(('0.0.0.0', port), AmpereProxyHandler)
-    server.base_url = base_url
-    server.tokens = tokens
-    server.rr_state_file = rr_state_file
-    server.pick_token = pick_token
-    server.stats = stats
-
-    print(f"⚡️ Proxy starting on http://0.0.0.0:{port}")
-    print(f"🎯 Target: {base_url}")
-    print(f"🔢 Loaded {len(tokens)} token(s) for round-robin balancing")
-    try:
-        server.serve_forever()
-    except KeyboardInterrupt:
-        print("\n🛑 Shutting down proxy")
-        server.server_close()
-
-
-def main():
-    parser = argparse.ArgumentParser(
-        description="Ampere/OpenRouter proxy with round-robin token balancing"
-    )
-    parser.add_argument("--base-url", default=DEFAULT_BASE_URL,
-                        help="Base URL for backend API (default: https://api.ampere.sh)")
-    parser.add_argument("--api-path", default=DEFAULT_API_PATH,
-                        help="API path to append (default: /v1/openrouter)")
-    parser.add_argument("--token",
-                        default=os.getenv("OPENROUTER_API_KEY") or os.getenv("ANTHROPIC_API_KEY") or "",
-                        help="Single token (overrides tokens file)")
-    parser.add_argument("--tokens-file",
-                        default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "tokens.txt"),
-                        help="Path to tokens file (one token per line)")
-    parser.add_argument("--rr-state-file",
-                        default=os.path.join(os.path.dirname(os.path.abspath(__file__)), ".tokens_rr_state"),
-                        help="File to persist round-robin state")
-    parser.add_argument("--model", default=DEFAULT_MODEL,
-                        help="Default model for smoke test")
-    parser.add_argument("--message", default="Reply exactly: pong",
-                        help="Message for smoke test")
-    parser.add_argument("--timeout", type=int, default=30,
-                        help="Timeout for smoke test request")
-    parser.add_argument("--serve", action="store_true",
-                        help="Start local proxy server")
-    parser.add_argument("--port", type=int, default=8080,
-                        help="Proxy server port (for --serve)")
-
-    args = parser.parse_args()
-
-    tokens = []
-    selected_token = args.token
-
-    if not selected_token:
-        try:
-            tokens = load_tokens(args.tokens_file)
-        except Exception as e:
-            print(f"❌ Cannot read tokens file: {e}")
-            sys.exit(2)
-
-    if not tokens:
-        print("❌ No tokens available. Set OPENROUTER_API_KEY, pass --token, or populate --tokens-file")
-        sys.exit(2)
-
-    if args.serve:
-        serve_proxy(args.port, args.base_url.rstrip("/"), tokens, args.rr_state_file)
-        return
-
-    selected_token = pick_round_robin_token(tokens, args.rr_state_file)
-
-    base = args.base_url.rstrip("/") + "/" + args.api_path.strip("/")
-    url = f"{base}/chat/completions"
-    body = {
-        "model": args.model,
-        "messages": [
-            {"role": "user", "content": args.message},
-        ],
-        "include_reasoning": False,
-        "temperature": 0,
-        "max_tokens": 256,
-    }
-
-    print(f"📤 POST {url}")
-    status, payload, elapsed, err = request_json(
-        method="POST",
-        url=url,
-        token=selected_token,
-        body=body,
-        timeout=args.timeout,
-    )
-
-    if err:
-        print(f"❌ FAIL: {err} ({elapsed:.0f} ms)")
-        sys.exit(1)
-
-    print(f"✅ Status: {status} ({elapsed:.0f} ms)")
-    if status is None or not (200 <= status < 300):
-        print(json.dumps(payload, indent=2)[:2000])
-        sys.exit(1)
-
-    print(f"📨 Response payload: {json.dumps(payload, indent=2)[:2000]}")
-    text = extract_text(payload)
-    print(f"🤖 AI reply: {text if text else '[no content]'}")
-    sys.exit(0)
-
-
-if __name__ == "__main__":
-
-           
+                idx = (idx + 1)
