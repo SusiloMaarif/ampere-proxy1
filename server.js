@@ -1,13 +1,7 @@
 const express = require('express');
 const axios = require('axios');
 const app = express();
-
 const PORT = process.env.PORT || 8090;
-
-// Debug: print raw TOKENS env
-console.log('=== DEBUG START ===');
-console.log('Raw process.env.TOKENS:', process.env.TOKENS ? process.env.TOKENS.substring(0, 200) : 'undefined');
-console.log('==================');
 
 // Load tokens
 let tokens = [];
@@ -25,37 +19,69 @@ if (process.env.TOKENS) {
   }
 }
 
-console.log('✅ Parsed tokens count:', tokens.length);
 if (tokens.length === 0) {
   console.error('❌ ERROR: No tokens! Set TOKENS env var.');
   process.exit(1);
 }
 
-let i = 0;
-function getNextToken() { return tokens[i++ % tokens.length]; }
+// Stats per token
+const stats = tokens.map(t => ({ token: t, used: 0, failed: 0 }));
+let currentIdx = 0;
+
+function getNextToken() {
+  currentIdx = (currentIdx + 1) % tokens.length;
+  return stats[currentIdx];
+}
 
 app.use(express.json());
 
+// Dashboard.html
 app.get('/', (req, res) => {
-  res.json({ status: 'ok', tokens: tokens.length, currentIndex: i });
+  const totalUsed = stats.reduce((a, b) => a + b.used, 0);
+  const totalFailed = stats.reduce((a, b) => a + b.failed, 0);
+  const activeTokens = stats.filter(s => s.failed <= 10).length; // heuristic
+
+  const rows = stats.map((s, i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td><code>${s.token.substring(0,12)}...</code></td>
+      <td>${s.used}</td>
+      <td>${s.failed}</td>
+      <td style="color:${s.failed > 10 ? '#f85149' : '#3fb950'}">${s.failed > 10 ? 'OFF' : 'OK'}</td>
+    </tr>
+  `).join('');
+
+  const html = `
+    <html><body style="background:#0d1117;color:#c9d1d9;font-family:monospace;padding:20px;">
+      <h1 style="color:#58a6ff;">⚡️ Ampere Proxy Dashboard</h1>
+      <p>Active tokens: <strong style="color:#3fb950;">${activeTokens}/${tokens.length}</strong></p>
+      <p>Total requests: <strong>${totalUsed}</strong> (failed: ${totalFailed})</p>
+      <table border="1" cellpadding="8" style="border-collapse:collapse;background:#161b22;color:#c9d1d9;">
+        <tr style="background:#21262d;">
+          <th>#</th><th>Token (first 12 chars)</th><th>Used</th><th>Failed</th><th>Status</th>
+        </tr>
+        ${rows}
+      </table>
+      <p style="font-size:12px;color:#8b949e;">Refresh to update</p>
+    </body></html>
+  `;
+  res.send(html);
 });
 
+// Proxy endpoint
 app.post('/v1/chat/completions', async (req, res) => {
+  const stat = getNextToken();
   try {
-    const token = getNextToken();
     const r = await axios.post('https://api.ampere.sh/v1/chat/completions', req.body, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { Authorization: `Bearer ${stat.token}` },
       timeout: 60000
     });
+    stat.used++;
     res.json(r.data);
   } catch (e) {
-    console.error('❌ Proxy error:', e.message);
-    res.status(500).json({ error: e.message });
-  }
-});
-
-app.get('/health', (req, res) => res.json({ status: 'ok', tokens: tokens.length }));
-
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`⚡️ Proxy running on port ${PORT}`);
-});
+    stat.failed++;
+    console.error(`❌ Token ${stat.token.substring(0,8)} error: ${e.message}`);
+    // Retry once with next token
+    try {
+      const stat2 = getNextToken();
+      const r2 = await axios.post('https://api.ampere.sh/v1/chat/complet
